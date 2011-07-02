@@ -9,7 +9,9 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <OpenCL/opencl.h>
+#include <CL/cl.h>
+#include <string>
+#include <iostream>
 
 const int MAX_DEVICE_COUNT = 32;
 
@@ -55,14 +57,44 @@ static char g_formatString[256];
 		printf(g_formatString, desc, v##param); \
 }
 
+#define CL_PLATFORM_INFO_P(platform, param, desc)			\
+  {									\
+    int r;								\
+    size_t size;							\
+    r = clGetPlatformInfo(platform, param, sizeof(g_s), g_s, &size); \
+									\
+    strcpy(g_format, "s");						\
+									\
+    sprintf(g_formatString, "%%-35s: %%%s\n", g_format);		\
+    printf(g_formatString, desc, g_s);					\
+  }
 int queryCLDevices(cl_device_type deviceType, int verbose, int rawOutput)
 {
 	cl_int				r;
 	cl_device_id		deviceList[MAX_DEVICE_COUNT];
 	cl_uint				deviceCount;
 
-	r = clGetDeviceIDs(NULL, deviceType, MAX_DEVICE_COUNT, deviceList, &deviceCount);
+  cl_platform_id platformList[MAX_DEVICE_COUNT];
+  cl_uint platformCount;
+  r = clGetPlatformIDs(MAX_DEVICE_COUNT, platformList, &platformCount);
+  if(!rawOutput)
+    printf("OpenCL platform count : %d\n", platformCount);
+  for(int platformId = 0; platformId < platformCount; ++platformId) {
+    if(!verbose && !rawOutput)
+      {
+	printf("Platform Id : %d\n", platformId);
+      }
+    if(verbose) {
+      printf("---------------------------------------------------------------------\n");
+      CL_PLATFORM_INFO_P(platformList[platformId], CL_PLATFORM_PROFILE, "Platform Profile");
+      CL_PLATFORM_INFO_P(platformList[platformId], CL_PLATFORM_VERSION, "Platform Version");
+      CL_PLATFORM_INFO_P(platformList[platformId], CL_PLATFORM_NAME, "Platform Name");
+      CL_PLATFORM_INFO_P(platformList[platformId], CL_PLATFORM_VENDOR, "Platform Vendor");
+      CL_PLATFORM_INFO_P(platformList[platformId], CL_PLATFORM_EXTENSIONS, "Platform Extensions");
+      printf("\n");
+    }
 
+   r = clGetDeviceIDs(platformList[platformId], deviceType, MAX_DEVICE_COUNT, deviceList, &deviceCount);
 	if (!rawOutput)
 		printf("OpenCL device count: %d\n", deviceCount);
 
@@ -78,8 +110,8 @@ int queryCLDevices(cl_device_type deviceType, int verbose, int rawOutput)
 		cl_char			name[1024];
 		cl_device_type	type;
 
-		char*			typeString;
-		char*			formatString;
+	std::string			typeString;
+	std::string			formatString;
 
 		size_t	size = 0;
 
@@ -109,13 +141,13 @@ int queryCLDevices(cl_device_type deviceType, int verbose, int rawOutput)
 			else
 				formatString = "  %-6s %-20s %-s\n";
 
-			printf(formatString, typeString, vendor, name);
+	    printf(formatString.c_str(), typeString.c_str(), vendor, name);
 		}
 		else
 		{
 			printf("---------------------------------------------------------------------\n");
 			printf("%-35s: %s\n", "Device", name);
-			printf("%-35s: %s\n", "Type", typeString);
+	    printf("%-35s: %s\n", "Type", typeString.c_str());
 			printf("%-35s: %s\n", "Vendor", vendor);
 			printf("\n");
 
@@ -126,7 +158,7 @@ int queryCLDevices(cl_device_type deviceType, int verbose, int rawOutput)
 								sizeof(maxWorkItemDimensions),
 								&maxWorkItemDimensions, &size);
 
-			size_t* maxWorkItemSizes = malloc(sizeof(size_t) * maxWorkItemDimensions);
+	    size_t* maxWorkItemSizes = (size_t*)malloc(sizeof(size_t) * maxWorkItemDimensions);
 			r = clGetDeviceInfo(deviceList[i], CL_DEVICE_MAX_WORK_ITEM_SIZES, 
 								sizeof(size_t) * maxWorkItemDimensions,
 								maxWorkItemSizes, &size);
@@ -279,8 +311,6 @@ int queryCLDevices(cl_device_type deviceType, int verbose, int rawOutput)
 			BIT_CHECK_P(queueProperties, CL_QUEUE_PROFILING_ENABLE)
 			printf("\n");
 
-			CL_DEVICE_PLATFORM; //TODO	
-
 			printf("\n");
 			CL_DEV_INFO_P(deviceList[i], CL_DRIVER_VERSION, char, "Driver Version");
 			CL_DEV_INFO_P(deviceList[i], CL_DEVICE_VERSION, char, "Device Version");
@@ -294,6 +324,7 @@ int queryCLDevices(cl_device_type deviceType, int verbose, int rawOutput)
 	if (!verbose && !rawOutput)
 		printf("\nSee detailed device information by running with the -v option.\n\n");
 
+  }
 	return 0;
 }
 

@@ -1,7 +1,7 @@
 ROOTNAME		= openclscan
-LIBS			= -framework OpenCL
+LIBS			= -lOpenCL
 
-CC				= clang
+CC				= g++
 COPTS			= -g 
 
 #CC				= gcc
